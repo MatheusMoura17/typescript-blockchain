@@ -1,4 +1,4 @@
-import BlockChain, { IBlock } from "./blockChain";
+import BlockChain, { IBlock, ITransaction } from "./blockChain";
 import WebSocketRelay from "./webSocketRelay";
 import EventEmitter from "events";
 
@@ -103,6 +103,14 @@ export default class Peer extends EventEmitter {
     }
   }
 
+  /** 
+   * Add new transaction in blockchain
+   */
+  public addTransaction(transaction: ITransaction) {
+    console.log("Peer: Adding new transaction");
+    this.blockChain.newTransaction(transaction);
+  }
+
   /**
    * Forge next block and reward a coin if sucess
    */
@@ -112,7 +120,11 @@ export default class Peer extends EventEmitter {
 
     // Miner rewards
     // Sender is 0 to identify miner coin log
-    this.blockChain.newTransaction("0", this.uuid, 1);
+    this.blockChain.newTransaction({
+      sender: "0",
+      recipient: this.uuid,
+      amount: 1,
+    });
 
     const forgedBlock = this.blockChain.newBlock(this.blockChain.lastBlockHash(), proof);
 

@@ -170,16 +170,11 @@ export default class BlockChain {
    * @param recipient Address of receiver <<
    * @param amount Amount of money to transfer
    */
-  public newTransaction(sender: string, recipient: string, amount: number): number {
-    const transaction: ITransaction = {
-      sender,
-      recipient,
-      amount
-    }
+  public newTransaction(transaction: ITransaction): number {
 
     this.currentTransactions.push(transaction);
 
-    console.log("New transaction added");
+    console.log("Blockchain: New transaction added");
     console.log(transaction);
 
     return this.chain.length + 1
