@@ -70,9 +70,14 @@ export default class BlockChain {
    */
   public proofOfWork() {
     let proof = 0;
-    const last_proof = this.lastBlock().proof;
+
+    const last_block = this.lastBlock();
+    const last_proof = last_block.proof;
+    const last_hash = last_block.previousHash;
+
     console.log(`Calculando PoW de ${last_proof}`);
-    while (!this.isValidProof(last_proof, proof)) {
+
+    while (!this.isValidProof(last_proof, proof, last_hash)) {
       proof += 1;
     }
     console.log(`PoW de ${last_proof} encontrado: ${proof}`);
@@ -85,8 +90,8 @@ export default class BlockChain {
    * @param lastProof Ultima prova
    * @param proof Prova atual
    */
-  private isValidProof(lastProof: number, proof: number): boolean {
-    const guess = lastProof * proof;
+  private isValidProof(lastProof: number, proof: number, lastHash: string): boolean {
+    const guess = `${lastProof}${proof}${lastHash}`;
     const guessHash = this.hashString(guess.toString());
     return guessHash.substr(0, 4) === "0000";
   }
