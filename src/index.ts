@@ -10,7 +10,7 @@ const serverPort = 4000;
 
 const app = express();
 
-// Parsers do express
+// Parsers of express
 app.use(express.urlencoded());
 app.use(express.json());
 
@@ -21,14 +21,14 @@ app.get("/", (_, res) => {
 app.get("/mine", (_, res) => {
   const proof = blockChain.proofOfWork();
 
-  // Recompensa do minerador
-  // o sender é 0 para identificar que a moeda foi minerada
+  // Miner rewards
+  // Sender is 0 to identify miner coin log
   blockChain.newTransaction("0", serverNodeIdentifier, 1);
 
   const forjedBlock = blockChain.newBlock(blockChain.lastBlockHash(), proof);
 
   res.send({
-    message: "Novo bloco forjado!",
+    message: "New Block forged!!",
     ...forjedBlock
   });
 });
@@ -37,12 +37,12 @@ app.post("/transaction/new", (req, res) => {
   const { sender, recipient, amount } = req.body;
 
   if (!sender || !recipient || !amount) {
-    return res.status(400).send("Parametros insuficientes, campos obrigatórios: sender | recipient | amount")
+    return res.status(400).send("Insuficient params! required: sender | recipient | amount")
   }
 
   const transactionIndex = blockChain.newTransaction(sender, recipient, amount);
 
-  res.send(`A transação será adicionada no bloco ${transactionIndex}`)
+  res.send(`The transaction will be added in ${transactionIndex}`)
 });
 
 app.get("/chain", (_, res) => {
@@ -56,7 +56,7 @@ app.post("/nodes/register", (req, res) => {
   const { nodes } = req.body;
 
   if (!nodes) {
-    return res.status(400).send("Parametros insuficientes, campos obrigatórios: nodes, separados por virgula. ex.: http://node1.com,http://node2.com")
+    return res.status(400).send("Insuficient params!, required: nodes, separed by ','. Sample: 'http://node1.com,http://node2.com'")
   }
 
   const nodeAddresses: string[] = nodes.split(",");
@@ -64,7 +64,7 @@ app.post("/nodes/register", (req, res) => {
   nodeAddresses.forEach(nodeAddress => blockChain.registerNode(nodeAddress));
 
   res.send({
-    message: "Node adicionado!",
+    message: "New node added",
     nodes: [...blockChain.Nodes]
   });
 });
@@ -72,7 +72,7 @@ app.post("/nodes/register", (req, res) => {
 app.get("/resolve", async (_, res) => {
   const isReplaced = await blockChain.resolveConflicts();
 
-  const message = isReplaced ? "Seu chain foi alterado" : "Seu chain é autoritário!";
+  const message = isReplaced ? "Your chain has ben changed" : "Your chain is autoritative!";
 
   console.log(`/resolve: ${message}`);
 
@@ -84,5 +84,5 @@ app.get("/resolve", async (_, res) => {
 
 app.listen(serverPort);
 
-console.log(`Servidor iniciado na porta ${serverPort}`);
-console.log(`UID do node: ${serverNodeIdentifier}`);
+console.log(`Server started in port ${serverPort}`);
+console.log(`Server wallet address: ${serverNodeIdentifier}`);
