@@ -1,3 +1,10 @@
+import BlockChain from "./services/blockChain";
 
-const txt: string = "hello world";
-console.log(txt);
+const blockChain = new BlockChain();
+
+// Adiciona novos 100 blocos
+for (let i = 0; i < 100; i++) {
+  blockChain.newBlock();
+}
+
+console.log(blockChain.Chain);
