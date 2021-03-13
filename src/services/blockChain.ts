@@ -1,6 +1,5 @@
 import stringify from "json-stable-stringify";
 import { createHash } from "crypto"
-import axios from "axios";
 
 export interface IBlock {
   index: number,
@@ -22,7 +21,6 @@ export interface INodeChainResult {
 }
 
 export default class BlockChain {
-  private nodes: Set<string> = new Set<string>()
   private chain: IBlock[] = [];
   private currentTransactions: ITransaction[] = []
 
@@ -33,10 +31,6 @@ export default class BlockChain {
 
   public get Chain(): IBlock[] {
     return this.chain;
-  }
-
-  public get Nodes(): Set<string> {
-    return this.nodes;
   }
 
   private hashString(content: string): string {
@@ -131,26 +125,43 @@ export default class BlockChain {
   }
 
   /**
+   * Resolves conflict from array of chain passed as param 
+   **/
+  public resolveConflictsMany(chains: IBlock[][]): boolean {
+
+    let maxLength = this.chain.length;
+
+    const newChain = chains.reduce<IBlock[]>((prev, chain) => {
+
+      const chainLength = chain.length;
+
+      if (chainLength > maxLength && this.isValidChain(chain)) {
+        maxLength = chainLength;
+        return chain;
+      }
+
+      return prev;
+    }, null)
+
+    if (newChain) {
+      this.chain = newChain;
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
    * Resolves conflict from chain passed as param 
    * @param chain 
    * @returns 
    */
   public resolveConflicts(chain: IBlock[]): boolean {
-
     const canReplaceChain = chain.length > this.chain.length && this.isValidChain(chain);
 
     if (canReplaceChain) this.chain = chain;
 
     return canReplaceChain;
-  }
-
-  /**
-   * Attach new host address to node list 
-   * @param address Address of host
-   */
-  public registerNode(address: string) {
-    this.nodes.add(address);
-    console.log(`New node added to list: ${address}`);
   }
 
   /**

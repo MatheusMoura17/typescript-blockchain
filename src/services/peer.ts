@@ -3,7 +3,7 @@ import WebSocketRelay from "./webSocketRelay";
 import EventEmitter from "events";
 
 export interface IPeerData {
-  command: "setUuid" | "seed" | "propagateChain"
+  command: "setUuid" | "seed" | "propagateChain" | "getChain" | "getChainResponse"
   data?: unknown;
 }
 
@@ -12,30 +12,11 @@ export default class Peer extends EventEmitter {
   private uuid = "";
   private blockChain: BlockChain = new BlockChain();
   private neighborsUuids: string[] = [];
+  private peersChains: Record<string, IBlock[]> = {};
 
   constructor(wsRelay: WebSocketRelay) {
     super();
     this.wsRelay = wsRelay;
-  }
-
-  public configureLocalPeer() {
-    this.wsRelay.on("clientReceiveMessage", (senderUuid: string, message: IPeerData) => {
-      switch (message.command) {
-        case "setUuid": this.setUuidCommand(message.data as string); break;
-        case "seed": this.seedCommand(message.data as string[]); break;
-        case "propagateChain": this.propagateCommand(message.data as IBlock[]); break;
-      }
-    });
-  }
-
-  public configureServerSidePeer(uuid: string) {
-    // Initilization
-    this.uuid = uuid;
-
-    this.sendMessage(this.uuid, {
-      command: "setUuid",
-      data: this.uuid,
-    });
   }
 
   /**
@@ -73,7 +54,9 @@ export default class Peer extends EventEmitter {
     this.neighborsUuids = neighborsUuids;
     console.log(`Peer: Received seed from server`);
     console.log(neighborsUuids);
-    this.startMiner();
+
+    // every seed, resolve to garants best version of local chain 
+    this.resolve();
   }
 
   /**
@@ -85,6 +68,39 @@ export default class Peer extends EventEmitter {
     const result = this.blockChain.resolveConflicts(chain);
     const message = result ? "Local chain is changed" : "Local chain is autoritative!"
     console.log(`Peer: Propagate result: ${message}`);
+  }
+
+  /**
+   * Process remote call of chain requisition seting current chain to requisitor
+   */
+  private getChainCommand(requisitorUuid: string) {
+    // Sent current chain for requisitor
+    this.sendMessage(requisitorUuid, {
+      command: "getChainResponse",
+      data: this.blockChain.Chain
+    });
+  }
+
+  /**
+   * Process remote call in response of chain requisition
+   * @param ownerUuid 
+   * @param chain 
+   */
+  private getChainResponseCommand(ownerUuid: string, chain: IBlock[]) {
+    this.peersChains[ownerUuid] = chain;
+
+    const current = Object.keys(this.peersChains).length;
+    const total = this.neighborsUuids.length;
+
+    const isReceivedAllChains = current == total;
+
+    console.log(`Peer: Received chain to resolve. ${current} of ${total}`);
+
+    if (isReceivedAllChains) {
+      const result = this.blockChain.resolveConflictsMany(Object.values(this.peersChains));
+      const message = result ? "Local chain changed" : "Local chain is autoritative";
+      console.log(`Peer: Chain resolved: "${message}"`);
+    }
   }
 
   /**
@@ -104,6 +120,10 @@ export default class Peer extends EventEmitter {
     this.propagate();
   }
 
+  /**
+   * Send current chain to all peers in current netwoork
+   * @returns 
+   */
   public propagate() {
     if (this.neighborsUuids.length == 0) return;
 
@@ -113,4 +133,39 @@ export default class Peer extends EventEmitter {
       data: this.blockChain.Chain
     });
   }
+
+
+  /**
+   * Request chain of all nodes and valid locally
+   */
+  public resolve() {
+    console.log("Peer: Requesting chains to resolve");
+    this.peersChains = {};
+    this.sendMessageMany(this.neighborsUuids, {
+      command: "getChain",
+    })
+  }
+
+  public configureLocalPeer() {
+    this.wsRelay.on("clientReceiveMessage", (senderUuid: string, message: IPeerData) => {
+      switch (message.command) {
+        case "setUuid": this.setUuidCommand(message.data as string); break;
+        case "seed": this.seedCommand(message.data as string[]); break;
+        case "propagateChain": this.propagateCommand(message.data as IBlock[]); break;
+        case "getChain": this.getChainCommand(senderUuid); break;
+        case "getChainResponse": this.getChainResponseCommand(senderUuid, message.data as IBlock[]); break;
+      }
+    });
+  }
+
+  public configureServerSidePeer(uuid: string) {
+    // Initilization
+    this.uuid = uuid;
+
+    this.sendMessage(this.uuid, {
+      command: "setUuid",
+      data: this.uuid,
+    });
+  }
+
 }
