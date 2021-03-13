@@ -6,7 +6,7 @@ import BlockChain from "./services/blockChain";
 const blockChain = new BlockChain();
 
 const serverNodeIdentifier = uuid4().replace(/-/g, "");
-const serverPort = 4000;
+const serverPort = 3000;
 
 const app = express();
 
