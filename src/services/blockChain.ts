@@ -1,5 +1,6 @@
 import stringify from "json-stable-stringify";
 import { createHash } from "crypto"
+import axios from "axios";
 
 export interface IBlock {
   index: number,
@@ -15,18 +16,30 @@ export interface ITransaction {
   amount: number
 }
 
-export default class BlockChain {
+export interface INodeChainResult {
+  chain?: IBlock[],
+  length?: number,
+}
 
+export default class BlockChain {
+  nodes: Set<string> = new Set<string>()
   chain: IBlock[] = [];
   currentTransactions: ITransaction[] = []
 
   constructor() {
+    this.nodes = new Set<string>();
+    this.currentTransactions = [];
+    this.chain = [];
     // Cria o bloco genesis
     this.newBlock("1", 100);
   }
 
   public get Chain(): IBlock[] {
     return this.chain;
+  }
+
+  public get Nodes(): Set<string> {
+    return this.nodes;
   }
 
   private hashString(content: string): string {
@@ -73,11 +86,10 @@ export default class BlockChain {
 
     const last_block = this.lastBlock();
     const last_proof = last_block.proof;
-    const last_hash = last_block.previousHash;
 
     console.log(`Calculando PoW de ${last_proof}`);
 
-    while (!this.isValidProof(last_proof, proof, last_hash)) {
+    while (!this.isValidProof(last_proof, proof)) {
       proof += 1;
     }
     console.log(`PoW de ${last_proof} encontrado: ${proof}`);
@@ -90,10 +102,94 @@ export default class BlockChain {
    * @param lastProof Ultima prova
    * @param proof Prova atual
    */
-  private isValidProof(lastProof: number, proof: number, lastHash: string): boolean {
-    const guess = `${lastProof}${proof}${lastHash}`;
+  private isValidProof(lastProof: number, proof: number): boolean {
+    const guess = `${lastProof}${proof}`;
     const guessHash = this.hashString(guess.toString());
     return guessHash.substr(0, 4) === "0000";
+  }
+
+  /**
+   * Checa se um determinado chain é válido
+   * @param chain 
+   */
+  public isValidChain(targetChain: IBlock[]) {
+
+    let lastBlock = targetChain[0];
+    let currentIndex = 1;
+
+    const chainLength = targetChain.length;
+
+    while (currentIndex < chainLength) {
+      const block = targetChain[currentIndex];
+
+      // Checa se o hash do bloco está diferente
+      if (block.previousHash !== this.hashBlock(lastBlock)) {
+        console.log("chain invalido por causa do hash")
+        return false;
+      }
+
+      // Checa se a prova de trabalho (proof) está é invalida
+      if (!this.isValidProof(lastBlock.proof, block.proof)) {
+        console.log("chain invalido poor causa do proof")
+        return false;
+      }
+
+      lastBlock = block;
+      currentIndex += 1;
+    }
+
+    return true;
+  }
+
+  private async requestNodeChain(nodeAddress): Promise<INodeChainResult> {
+    const response = await axios.get(`${nodeAddress}/chain`);
+
+    const result: INodeChainResult = {};
+
+    if (response.status == 200) {
+      result.chain = response.data.chain as IBlock[],
+        result.length = response.data.length as number
+    }
+
+    return result;
+  }
+
+  private async requestAllNodesChain(): Promise<INodeChainResult[]> {
+    return Promise.all([...this.nodes].map(this.requestNodeChain))
+  }
+
+  public async resolveConflicts(): Promise<boolean> {
+
+    let maxLength = this.chain.length;
+    const nodeContents = await this.requestAllNodesChain();
+
+    const newChain = nodeContents.reduce<IBlock[] | null>((prev, { chain, length }) => {
+      if (chain && length) {
+
+        if (length > maxLength && this.isValidChain(chain)) {
+          maxLength = length;
+          return chain;
+        }
+
+      }
+      return prev;
+    }, null)
+
+    if (newChain) {
+      this.chain = newChain;
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Registra um novo node no blockchain
+   * @param address endereço deste blockchain
+   */
+  public registerNode(address) {
+    this.nodes.add(address);
+    console.log(`Novo node adicionado: ${address}`);
   }
 
   /**

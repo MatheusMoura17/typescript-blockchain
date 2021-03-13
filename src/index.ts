@@ -6,7 +6,7 @@ import BlockChain from "./services/blockChain";
 const blockChain = new BlockChain();
 
 const serverNodeIdentifier = uuid4().replace(/-/g, "");
-const serverPort = 3000;
+const serverPort = 4000;
 
 const app = express();
 
@@ -49,6 +49,36 @@ app.get("/chain", (_, res) => {
   res.send({
     chain: blockChain.Chain,
     length: blockChain.Chain.length
+  });
+});
+
+app.post("/nodes/register", (req, res) => {
+  const { nodes } = req.body;
+
+  if (!nodes) {
+    return res.status(400).send("Parametros insuficientes, campos obrigatórios: nodes, separados por virgula. ex.: http://node1.com,http://node2.com")
+  }
+
+  const nodeAddresses: string[] = nodes.split(",");
+
+  nodeAddresses.forEach(nodeAddress => blockChain.registerNode(nodeAddress));
+
+  res.send({
+    message: "Node adicionado!",
+    nodes: [...blockChain.Nodes]
+  });
+});
+
+app.get("/resolve", async (_, res) => {
+  const isReplaced = await blockChain.resolveConflicts();
+
+  const message = isReplaced ? "Seu chain foi alterado" : "Seu chain é autoritário!";
+
+  console.log(`/resolve: ${message}`);
+
+  res.send({
+    message,
+    currentChain: blockChain.Chain,
   });
 });
 
