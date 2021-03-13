@@ -1,6 +1,5 @@
 import stringify from "json-stable-stringify";
 import { createHash } from "crypto"
-import axios from "axios";
 
 export interface IBlock {
   index: number,
@@ -22,9 +21,8 @@ export interface INodeChainResult {
 }
 
 export default class BlockChain {
-  nodes: Set<string> = new Set<string>()
-  chain: IBlock[] = [];
-  currentTransactions: ITransaction[] = []
+  private chain: IBlock[] = [];
+  private currentTransactions: ITransaction[] = []
 
   constructor() {
     // Adds block genesis to chain
@@ -33,10 +31,6 @@ export default class BlockChain {
 
   public get Chain(): IBlock[] {
     return this.chain;
-  }
-
-  public get Nodes(): Set<string> {
-    return this.nodes;
   }
 
   private hashString(content: string): string {
@@ -98,7 +92,7 @@ export default class BlockChain {
    * Basically checks if the hash contains 4 zeros to the left
    */
   private isValidProof(lastProof: number, proof: number): boolean {
-    const guess = `${lastProof}${proof}`;
+    const guess = lastProof * proof;
     const guessHash = this.hashString(guess.toString());
     return guessHash.substr(0, 4) === "0000";
   }
@@ -130,37 +124,22 @@ export default class BlockChain {
     return true;
   }
 
-  private async requestNodeChain(nodeAddress): Promise<INodeChainResult> {
-    const response = await axios.get(`${nodeAddress}/chain`);
-
-    const result: INodeChainResult = {};
-
-    if (response.status == 200) {
-      result.chain = response.data.chain as IBlock[],
-        result.length = response.data.length as number
-    }
-
-    return result;
-  }
-
-  private async requestAllNodesChain(): Promise<INodeChainResult[]> {
-    return Promise.all([...this.nodes].map(this.requestNodeChain))
-  }
-
-  public async resolveConflicts(): Promise<boolean> {
+  /**
+   * Resolves conflict from array of chain passed as param 
+   **/
+  public resolveConflictsMany(chains: IBlock[][]): boolean {
 
     let maxLength = this.chain.length;
-    const nodeContents = await this.requestAllNodesChain();
 
-    const newChain = nodeContents.reduce<IBlock[] | null>((prev, { chain, length }) => {
-      if (chain && length) {
+    const newChain = chains.reduce<IBlock[]>((prev, chain) => {
 
-        if (length > maxLength && this.isValidChain(chain)) {
-          maxLength = length;
-          return chain;
-        }
+      const chainLength = chain.length;
 
+      if (chainLength > maxLength && this.isValidChain(chain)) {
+        maxLength = chainLength;
+        return chain;
       }
+
       return prev;
     }, null)
 
@@ -173,12 +152,16 @@ export default class BlockChain {
   }
 
   /**
-   * Attach new host address to node list 
-   * @param address Address of host
+   * Resolves conflict from chain passed as param 
+   * @param chain 
+   * @returns 
    */
-  public registerNode(address) {
-    this.nodes.add(address);
-    console.log(`New node added to list: ${address}`);
+  public resolveConflicts(chain: IBlock[]): boolean {
+    const canReplaceChain = chain.length > this.chain.length && this.isValidChain(chain);
+
+    if (canReplaceChain) this.chain = chain;
+
+    return canReplaceChain;
   }
 
   /**
@@ -187,16 +170,11 @@ export default class BlockChain {
    * @param recipient Address of receiver <<
    * @param amount Amount of money to transfer
    */
-  public newTransaction(sender: string, recipient: string, amount: number): number {
-    const transaction: ITransaction = {
-      sender,
-      recipient,
-      amount
-    }
+  public newTransaction(transaction: ITransaction): number {
 
     this.currentTransactions.push(transaction);
 
-    console.log("New transaction added");
+    console.log("Blockchain: New transaction added");
     console.log(transaction);
 
     return this.chain.length + 1
@@ -222,8 +200,7 @@ export default class BlockChain {
     this.clearCurrentTransactions();
 
     this.chain.push(block);
-    console.log("New block added to chain");
-    console.log(block);
+    console.log("BlockChain: New block added");
     return block;
   }
 }

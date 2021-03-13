@@ -6,10 +6,10 @@
     ],
     "module": "commonjs",
     "moduleResolution": "node",
-    "removeComments": false,
     "outDir": "dist",
     "allowJs": true,
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "skipLibCheck": true
   },
   "include": [
     "src/**/*.ts",
