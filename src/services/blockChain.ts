@@ -50,7 +50,7 @@ export default class BlockChain {
     return this.chain[this.chain.length - 1];
   }
 
-  private lastBlockHash() {
+  public lastBlockHash() {
     return this.hashBlock(this.lastBlock());
   }
 
@@ -68,11 +68,14 @@ export default class BlockChain {
    * y = Ultima prova de trabalho calculada  
    * @param lastProof 
    */
-  private proofOfWork(lastProof: number) {
+  public proofOfWork() {
     let proof = 0;
-    while (!this.isValidProof(lastProof, proof)) {
+    const last_proof = this.lastBlock().proof;
+    console.log(`Calculando PoW de ${last_proof}`);
+    while (!this.isValidProof(last_proof, proof)) {
       proof += 1;
     }
+    console.log(`PoW de ${last_proof} encontrado: ${proof}`);
     return proof;
   }
 
@@ -94,15 +97,20 @@ export default class BlockChain {
    * @param recipient Quem receberá
    * @param amount quantidade
    */
-  public newTransaction(sender, recipient, amount): number {
-    this.currentTransactions.push({
+  public newTransaction(sender: string, recipient: string, amount: number): number {
+    const transaction: ITransaction = {
       sender,
       recipient,
       amount
-    });
+    }
+
+    this.currentTransactions.push(transaction);
+
+    console.log("Nova transação adicionada");
+    console.log(transaction);
 
     // retorna o indice do bloco que terá a transação
-    return this.chain.indexOf(this.lastBlock()) + 1
+    return this.chain.length + 1
   }
 
   /** 
@@ -123,6 +131,8 @@ export default class BlockChain {
     this.clearCurrentTransactions();
 
     this.chain.push(block);
+    console.log("Novo bloco adicionado");
+    console.log(block);
     return block;
   }
 }
