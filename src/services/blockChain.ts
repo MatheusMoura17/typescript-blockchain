@@ -27,10 +27,7 @@ export default class BlockChain {
   currentTransactions: ITransaction[] = []
 
   constructor() {
-    this.nodes = new Set<string>();
-    this.currentTransactions = [];
-    this.chain = [];
-    // Cria o bloco genesis
+    // Adds block genesis to chain
     this.newBlock("1", 100);
   }
 
@@ -47,11 +44,11 @@ export default class BlockChain {
   }
 
   /**
-   * Gera o hash em SHA-256 de um bloco
-   * @param block Bloco que será criptografado
+   * Generates a SHA-256 block hash
+   * @param block Block to be hashed
    */
   private hashBlock(block: IBlock): string {
-    //  Usamos a lib `json-stable-stringify` para gerar um json deterministico, isso evita incosistencia de hashes
+    // Use `json-stable-stringify` library to generate a deterministic JSON, prevents hash inconsistency because object keys sorting.
     const blockString = stringify(block);
 
     const hash = this.hashString(blockString);
@@ -67,18 +64,17 @@ export default class BlockChain {
     return this.hashBlock(this.lastBlock());
   }
 
-  /**
-   * Limpa as transações atuais
-   */
   private clearCurrentTransactions() {
     this.currentTransactions = []
   }
 
+  // TODO - This implementation is failing at times
   /**
-   * Algoritimo de prova de trabalho.
-   * Busca pelo numero x, onde o sha256(x * y) contenha 4 zeros a esquerda.
-   * x = O número que queremos (nossa prova de trebalho PoW)
-   * y = Ultima prova de trabalho calculada  
+   * Algorithm to find PoW (Proof of work)
+   * Search by number x, in sha256(x * y), starts with 4 zeros to left, sample.: 0000xe6....
+   * You can change the complexity changing number of zeros to up.
+   * x = Number returned by method
+   * y = Proof of last block in chain
    * @param lastProof 
    */
   public proofOfWork() {
@@ -98,9 +94,8 @@ export default class BlockChain {
 
 
   /**
-   * Checa se uma prova (proof) é valida, checando se o hash contém 4 zeros a esquerda
-   * @param lastProof Ultima prova
-   * @param proof Prova atual
+   * Check if proof is valid.
+   * Basically checks if the hash contains 4 zeros to the left
    */
   private isValidProof(lastProof: number, proof: number): boolean {
     const guess = `${lastProof}${proof}`;
@@ -109,30 +104,24 @@ export default class BlockChain {
   }
 
   /**
-   * Checa se um determinado chain é válido
-   * @param chain 
+   * Check if PoW and Hash of all blocks are valid
+   * @param chain Chain to be analyzed
    */
-  public isValidChain(targetChain: IBlock[]) {
+  public isValidChain(chain: IBlock[]) {
 
-    let lastBlock = targetChain[0];
+    let lastBlock = chain[0];
     let currentIndex = 1;
 
-    const chainLength = targetChain.length;
+    const chainLength = chain.length;
 
     while (currentIndex < chainLength) {
-      const block = targetChain[currentIndex];
+      const block = chain[currentIndex];
 
-      // Checa se o hash do bloco está diferente
-      if (block.previousHash !== this.hashBlock(lastBlock)) {
-        console.log("chain invalido por causa do hash")
-        return false;
-      }
+      // Checks if hash of block is invalid
+      if (block.previousHash !== this.hashBlock(lastBlock)) return false;
 
-      // Checa se a prova de trabalho (proof) está é invalida
-      if (!this.isValidProof(lastBlock.proof, block.proof)) {
-        console.log("chain invalido poor causa do proof")
-        return false;
-      }
+      // Checks if PoW is invalid
+      if (!this.isValidProof(lastBlock.proof, block.proof)) return false;
 
       lastBlock = block;
       currentIndex += 1;
@@ -184,19 +173,19 @@ export default class BlockChain {
   }
 
   /**
-   * Registra um novo node no blockchain
-   * @param address endereço deste blockchain
+   * Attach new host address to node list 
+   * @param address Address of host
    */
   public registerNode(address) {
     this.nodes.add(address);
-    console.log(`Novo node adicionado: ${address}`);
+    console.log(`New node added to list: ${address}`);
   }
 
   /**
-   * Cria uma nova transação
-   * @param sender Quem está enviando
-   * @param recipient Quem receberá
-   * @param amount quantidade
+   * Add new transaction request, transactions are automatically attached in new block discovered by miners.
+   * @param sender Address of sender >>
+   * @param recipient Address of receiver <<
+   * @param amount Amount of money to transfer
    */
   public newTransaction(sender: string, recipient: string, amount: number): number {
     const transaction: ITransaction = {
@@ -207,15 +196,16 @@ export default class BlockChain {
 
     this.currentTransactions.push(transaction);
 
-    console.log("Nova transação adicionada");
+    console.log("New transaction added");
     console.log(transaction);
 
-    // retorna o indice do bloco que terá a transação
     return this.chain.length + 1
   }
 
   /** 
-   * Cria um novo bloco e adiciona ao chain
+   * Add new block to chain
+   * @param previousHash Last block hash, 
+   * @param proof PoW (proof of work) of this block
    */
   public newBlock(previousHash: string, proof: number): IBlock {
 
@@ -226,13 +216,13 @@ export default class BlockChain {
       transactions: this.currentTransactions,
       index: this.chain.length + 1,
       timestamp: currentDate.getTime(),
-      previousHash: previousHash || this.lastBlockHash()
+      previousHash: previousHash || this.lastBlockHash(),
     }
 
     this.clearCurrentTransactions();
 
     this.chain.push(block);
-    console.log("Novo bloco adicionado");
+    console.log("New block added to chain");
     console.log(block);
     return block;
   }
