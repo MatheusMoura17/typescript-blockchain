@@ -98,7 +98,7 @@ export default class BlockChain {
    * Basically checks if the hash contains 4 zeros to the left
    */
   private isValidProof(lastProof: number, proof: number): boolean {
-    const guess = `${lastProof}${proof}`;
+    const guess = lastProof * proof;
     const guessHash = this.hashString(guess.toString());
     return guessHash.substr(0, 4) === "0000";
   }
@@ -130,46 +130,18 @@ export default class BlockChain {
     return true;
   }
 
-  private async requestNodeChain(nodeAddress: string): Promise<INodeChainResult> {
-    const response = await axios.get(`${nodeAddress}/chain`);
+  /**
+   * Resolves conflict from chain passed as param 
+   * @param chain 
+   * @returns 
+   */
+  public resolveConflicts(chain: IBlock[]): boolean {
 
-    const result: INodeChainResult = {};
+    const canReplaceChain = chain.length > this.chain.length && this.isValidChain(chain);
 
-    if (response.status == 200) {
-      result.chain = response.data.chain as IBlock[],
-        result.length = response.data.length as number
-    }
+    if (canReplaceChain) this.chain = chain;
 
-    return result;
-  }
-
-  private async requestAllNodesChain(): Promise<INodeChainResult[]> {
-    return Promise.all([...this.nodes].map(this.requestNodeChain))
-  }
-
-  public async resolveConflicts(): Promise<boolean> {
-
-    let maxLength = this.chain.length;
-    const nodeContents = await this.requestAllNodesChain();
-
-    const newChain = nodeContents.reduce<IBlock[] | null>((prev, { chain, length }) => {
-      if (chain && length) {
-
-        if (length > maxLength && this.isValidChain(chain)) {
-          maxLength = length;
-          return chain;
-        }
-
-      }
-      return prev;
-    }, null)
-
-    if (newChain) {
-      this.chain = newChain;
-      return true;
-    }
-
-    return false;
+    return canReplaceChain;
   }
 
   /**

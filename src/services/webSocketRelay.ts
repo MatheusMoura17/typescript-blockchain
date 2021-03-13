@@ -4,13 +4,16 @@ import EventEmitter from "events";
 
 export interface IWebSocketRelayData {
   sender: string,
+  recipient: string
   message: object
 }
 
 export default class WebSocketRelay extends EventEmitter {
-  private socket: Server | WebSocket | null = null;
+  private clientSocket: WebSocket | null = null;
+  private serverSocket: Server | null = null;
   private connections: Record<string, WebSocket> = {}
   private port = 0;
+  private isServer = false;
 
   /** 
    * Current list of connected user ids
@@ -28,13 +31,14 @@ export default class WebSocketRelay extends EventEmitter {
    * Run a new relay server
    */
   public listen() {
-    this.socket = new Server({
+    this.isServer = true;
+    this.serverSocket = new Server({
       port: this.port
     });
 
     console.log("WsRelay: Server started in ws://localhost:" + this.port);
 
-    this.socket.on('connection', (socket: WebSocket) => {
+    this.serverSocket.on('connection', (socket: WebSocket) => {
 
       const uuid = uuid4().replace(/-/g, "");
       this.connections[uuid] = socket;
@@ -45,8 +49,8 @@ export default class WebSocketRelay extends EventEmitter {
 
       socket.on("message", (data: WebSocket.Data) => {
         const parsed = JSON.parse(data.toString()) as IWebSocketRelayData;
-
-        this.emit("serverReceiveMessage", parsed.sender, parsed.message);
+        // Forwards package to recipient
+        this.connections[parsed.recipient].send(data);
       })
 
       // Peer socket is closed
@@ -66,10 +70,18 @@ export default class WebSocketRelay extends EventEmitter {
    */
   public sendMessage(sender: string, recipient: string, message: object) {
     const data: IWebSocketRelayData = {
-      sender,
+      sender: this.isServer ? "server" : sender,
+      recipient,
       message
+    };
+
+    const stringData = JSON.stringify(data);
+
+    if (this.isServer) {
+      this.connections[recipient].send(stringData);
+    } else {
+      this.clientSocket.send(stringData);
     }
-    this.connections[recipient].send(JSON.stringify(data))
   }
 
   /**
@@ -85,38 +97,24 @@ export default class WebSocketRelay extends EventEmitter {
   }
 
   /**
-   * Send message to all UUIDs in current network
-   * @param sender User sending data
-   * @param message data message
-   */
-  public broadcastMessage(sender: string, message: object) {
-    this.allUuids.forEach(recipient => {
-      // Prevents message redundancy
-      if (sender !== recipient) {
-        this.sendMessage(sender, recipient, message);
-      }
-    });
-  }
-
-
-  /**
    * Connect to remote relay
    */
   public connect() {
+    this.isServer = false;
     console.log("WsRelay: Connecting to ws://localhost: " + this.port);
-    this.socket = new WebSocket("ws://localhost:" + this.port);
+    this.clientSocket = new WebSocket("ws://localhost:" + this.port);
 
-    this.socket.on('open', () => {
+    this.clientSocket.on('open', () => {
       console.log("WsRelay: Connected!");
       this.emit("peerConnected");
     });
 
-    this.socket.on('close', (socket: WebSocket) => {
+    this.clientSocket.on('close', (socket: WebSocket) => {
       console.log("WsRelay: Disconnected");
       this.emit("peerDisconnected");
     });
 
-    this.socket.on("message", (data: WebSocket.Data) => {
+    this.clientSocket.on("message", (data: WebSocket.Data) => {
       const parsed = JSON.parse(data.toString()) as IWebSocketRelayData;
 
       this.emit("clientReceiveMessage", parsed.sender, parsed.message);

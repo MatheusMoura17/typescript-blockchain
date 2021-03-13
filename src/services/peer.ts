@@ -1,17 +1,17 @@
-import BlockChain from "./blockChain";
+import BlockChain, { IBlock } from "./blockChain";
 import WebSocketRelay from "./webSocketRelay";
 import EventEmitter from "events";
 
 export interface IPeerData {
-  command: "setUuid" | "seed"
+  command: "setUuid" | "seed" | "propagateChain"
   data?: unknown;
 }
 
 export default class Peer extends EventEmitter {
   private wsRelay: WebSocketRelay;
   private uuid = "";
-  private blockChain: BlockChain;
-  private neighborsUuids = new Set<string>();
+  private blockChain: BlockChain = new BlockChain();
+  private neighborsUuids: string[] = [];
 
   constructor(wsRelay: WebSocketRelay) {
     super();
@@ -23,6 +23,7 @@ export default class Peer extends EventEmitter {
       switch (message.command) {
         case "setUuid": this.setUuidCommand(message.data as string); break;
         case "seed": this.seedCommand(message.data as string[]); break;
+        case "propagateChain": this.propagateCommand(message.data as IBlock[]); break;
       }
     });
   }
@@ -30,13 +31,6 @@ export default class Peer extends EventEmitter {
   public configureServerSidePeer(uuid: string) {
     // Initilization
     this.uuid = uuid;
-
-    this.wsRelay.on("serverReceiveMessage", (senderUuid: string, message: IPeerData) => {
-      switch (message.command) {
-        case "setUuid": this.setUuidCommand(message.data as string); break;
-        case "seed": this.seedCommand(message.data as string[]); break;
-      }
-    });
 
     this.sendMessage(this.uuid, {
       command: "setUuid",
@@ -68,7 +62,6 @@ export default class Peer extends EventEmitter {
    */
   private setUuidCommand(uuid: string) {
     this.uuid = uuid;
-    this.blockChain = new BlockChain();
     console.log(`Peer: Setted UUID: ${uuid}`);
   }
 
@@ -77,24 +70,47 @@ export default class Peer extends EventEmitter {
    * @param neighborsUuids 
    */
   private seedCommand(neighborsUuids: string[]) {
-    this.neighborsUuids = new Set<string>(neighborsUuids);
+    this.neighborsUuids = neighborsUuids;
     console.log(`Peer: Received seed from server`);
     console.log(neighborsUuids);
+    this.startMiner();
   }
 
   /**
-   * Forge next block and reward coin
+   * Process remote call of propagation
+   * @param chain received chain
    */
-  public mine() {
-    console.log("\t${this.uuid}: Miner starter...");
+  private propagateCommand(chain: IBlock[]) {
+    console.log(`Peer: Received propagate command`);
+    const result = this.blockChain.resolveConflicts(chain);
+    const message = result ? "Local chain is changed" : "Local chain is autoritative!"
+    console.log(`Peer: Propagate result: ${message}`);
+  }
 
+  /**
+   * Forge next block and reward a coin if sucess
+   */
+  public startMiner() {
+    console.log(`Peer: Minerating...`);
     const proof = this.blockChain.proofOfWork();
+
     // Miner rewards
     // Sender is 0 to identify miner coin log
-    this.blockChain.newTransaction("0", "UUID-HERE", 1);
+    this.blockChain.newTransaction("0", this.uuid, 1);
 
-    this.blockChain.newBlock(this.blockChain.lastBlockHash(), proof);
+    const forgedBlock = this.blockChain.newBlock(this.blockChain.lastBlockHash(), proof);
 
-    console.log("\t${this.uuid}: new Block forged!");
+    console.log(`Peer: New block forged! ${forgedBlock.proof}`);
+    this.propagate();
+  }
+
+  public propagate() {
+    if (this.neighborsUuids.length == 0) return;
+
+    console.log(`Peer: Sending propagate command`);
+    this.sendMessageMany(this.neighborsUuids, {
+      command: "propagateChain",
+      data: this.blockChain.Chain
+    });
   }
 }
