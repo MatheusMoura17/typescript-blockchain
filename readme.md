@@ -5,23 +5,13 @@ This project is a version of https://github.com/dvf/blockchain in **typecript** 
 ## How to use
 
 run `npm i` to install dependencies
-run `npm start` to start server
 
-Use postman or other rest api assistent to run routes.:
+npm `npm run pool-server` to start wsRelay service;
 
-GET <- `/` - Receive server `OK` status;
-
-GET <- `/mine` - Miner next block;
-
-POST -> `/transaction/new` - Make new transaction request (the transaction has be attached in next forget block by miner);
-
-GET <- `/chain` - Get current chain;
-
-POST -> `/nodes/register` - Add new peer to this server
-
-GET <- `/resolve` - Before start you need sync chain data with added nodes (peers) use `/resolve` to populate or resolve chain conflicts between you and nodes.
+run `npm start` in different terminal to start server, execute multiuplies instances to best results.
 
 ## Next steps
 
-- [ ] Add peer to peer websocket comunication with peer.js.
+- [x] Add peer to peer websocket comunication
 - [ ] Add wallet with UUID.
+- [ ] Add Account ballance.
