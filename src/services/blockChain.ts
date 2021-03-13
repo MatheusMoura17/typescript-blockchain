@@ -22,9 +22,9 @@ export interface INodeChainResult {
 }
 
 export default class BlockChain {
-  nodes: Set<string> = new Set<string>()
-  chain: IBlock[] = [];
-  currentTransactions: ITransaction[] = []
+  private nodes: Set<string> = new Set<string>()
+  private chain: IBlock[] = [];
+  private currentTransactions: ITransaction[] = []
 
   constructor() {
     // Adds block genesis to chain
@@ -130,7 +130,7 @@ export default class BlockChain {
     return true;
   }
 
-  private async requestNodeChain(nodeAddress): Promise<INodeChainResult> {
+  private async requestNodeChain(nodeAddress: string): Promise<INodeChainResult> {
     const response = await axios.get(`${nodeAddress}/chain`);
 
     const result: INodeChainResult = {};
@@ -176,7 +176,7 @@ export default class BlockChain {
    * Attach new host address to node list 
    * @param address Address of host
    */
-  public registerNode(address) {
+  public registerNode(address: string) {
     this.nodes.add(address);
     console.log(`New node added to list: ${address}`);
   }
@@ -222,8 +222,7 @@ export default class BlockChain {
     this.clearCurrentTransactions();
 
     this.chain.push(block);
-    console.log("New block added to chain");
-    console.log(block);
+    console.log("BlockChain: New block added");
     return block;
   }
 }

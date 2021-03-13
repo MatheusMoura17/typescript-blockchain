@@ -1,88 +1,97 @@
-import express from "express";
-import uuid4 from "uuid4"
+import Pool from "./services/pool";
 
-import BlockChain from "./services/blockChain";
+const pool = new Pool();
 
-const blockChain = new BlockChain();
+const runAsPoolServer = process.argv.length >= 2 ? process.argv[2] : false;
 
-const serverNodeIdentifier = uuid4().replace(/-/g, "");
-const serverPort = 3000;
+if (runAsPoolServer) {
+  pool.listen();
+} else {
+  pool.connect();
+}
 
-const app = express();
+// import BlockChain from "./services/blockChain";
 
-// Parsers of express
-app.use(express.urlencoded());
-app.use(express.json());
+// const blockChain = new BlockChain();
 
-app.get("/", (_, res) => {
-  res.send("ok!");
-})
+// const serverNodeIdentifier = uuid4().replace(/-/g, "");
+// const serverPort = 3000;
 
-app.get("/mine", (_, res) => {
-  const proof = blockChain.proofOfWork();
+// const app = express();
 
-  // Miner rewards
-  // Sender is 0 to identify miner coin log
-  blockChain.newTransaction("0", serverNodeIdentifier, 1);
+// // Parsers of express
+// app.use(express.urlencoded());
+// app.use(express.json());
 
-  const forjedBlock = blockChain.newBlock(blockChain.lastBlockHash(), proof);
+// app.get("/", (_, res) => {
+//   res.send("ok!");
+// })
 
-  res.send({
-    message: "New Block forged!!",
-    ...forjedBlock
-  });
-});
+// app.get("/mine", (_, res) => {
+//   const proof = blockChain.proofOfWork();
 
-app.post("/transaction/new", (req, res) => {
-  const { sender, recipient, amount } = req.body;
+//   // Miner rewards
+//   // Sender is 0 to identify miner coin log
+//   blockChain.newTransaction("0", serverNodeIdentifier, 1);
 
-  if (!sender || !recipient || !amount) {
-    return res.status(400).send("Insuficient params! required: sender | recipient | amount")
-  }
+//   const forjedBlock = blockChain.newBlock(blockChain.lastBlockHash(), proof);
 
-  const transactionIndex = blockChain.newTransaction(sender, recipient, amount);
+//   res.send({
+//     message: "New Block forged!!",
+//     ...forjedBlock
+//   });
+// });
 
-  res.send(`The transaction will be added in ${transactionIndex}`)
-});
+// app.post("/transaction/new", (req, res) => {
+//   const { sender, recipient, amount } = req.body;
 
-app.get("/chain", (_, res) => {
-  res.send({
-    chain: blockChain.Chain,
-    length: blockChain.Chain.length
-  });
-});
+//   if (!sender || !recipient || !amount) {
+//     return res.status(400).send("Insuficient params! required: sender | recipient | amount")
+//   }
 
-app.post("/nodes/register", (req, res) => {
-  const { nodes } = req.body;
+//   const transactionIndex = blockChain.newTransaction(sender, recipient, amount);
 
-  if (!nodes) {
-    return res.status(400).send("Insuficient params!, required: nodes, separed by ','. Sample: 'http://node1.com,http://node2.com'")
-  }
+//   res.send(`The transaction will be added in ${transactionIndex}`)
+// });
 
-  const nodeAddresses: string[] = nodes.split(",");
+// app.get("/chain", (_, res) => {
+//   res.send({
+//     chain: blockChain.Chain,
+//     length: blockChain.Chain.length
+//   });
+// });
 
-  nodeAddresses.forEach(nodeAddress => blockChain.registerNode(nodeAddress));
+// app.post("/nodes/register", (req, res) => {
+//   const { nodes } = req.body;
 
-  res.send({
-    message: "New node added",
-    nodes: [...blockChain.Nodes]
-  });
-});
+//   if (!nodes) {
+//     return res.status(400).send("Insuficient params!, required: nodes, separed by ','. Sample: 'http://node1.com,http://node2.com'")
+//   }
 
-app.get("/resolve", async (_, res) => {
-  const isReplaced = await blockChain.resolveConflicts();
+//   const nodeAddresses: string[] = nodes.split(",");
 
-  const message = isReplaced ? "Your chain has ben changed" : "Your chain is autoritative!";
+//   nodeAddresses.forEach(nodeAddress => blockChain.registerNode(nodeAddress));
 
-  console.log(`/resolve: ${message}`);
+//   res.send({
+//     message: "New node added",
+//     nodes: [...blockChain.Nodes]
+//   });
+// });
 
-  res.send({
-    message,
-    currentChain: blockChain.Chain,
-  });
-});
+// app.get("/resolve", async (_, res) => {
+//   const isReplaced = await blockChain.resolveConflicts();
 
-app.listen(serverPort);
+//   const message = isReplaced ? "Your chain has ben changed" : "Your chain is autoritative!";
 
-console.log(`Server started in port ${serverPort}`);
-console.log(`Server wallet address: ${serverNodeIdentifier}`);
+//   console.log(`/resolve: ${message}`);
+
+//   res.send({
+//     message,
+//     currentChain: blockChain.Chain,
+//   });
+// });
+
+// app.listen(serverPort);
+
+// console.log(`Server started in port ${serverPort}`);
+// console.log(`Server wallet address: ${serverNodeIdentifier}`);

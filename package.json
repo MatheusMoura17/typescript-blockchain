@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "pool-server": "ts-node ./src/index.ts -runAsPoolServer",
     "start": "ts-node ./src/index.ts"
   },
   "repository": {
@@ -18,12 +19,15 @@
   },
   "homepage": "https://github.com/MatheusMoura17/typescript-blockchain#readme",
   "dependencies": {
+    "@types/ws": "^7.4.0",
     "axios": "^0.21.1",
+    "events": "^3.3.0",
     "express": "^4.17.1",
     "json-stable-stringify": "^1.0.1",
     "ts-node": "^9.1.1",
     "typescript": "^4.2.3",
-    "uuid4": "^2.0.2"
+    "uuid4": "^2.0.2",
+    "ws": "^7.4.4"
   },
   "devDependencies": {
     "@types/express": "^4.17.11",
